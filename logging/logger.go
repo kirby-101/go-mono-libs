@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"os"
 	"sync"
+
+	ansicolor "github.com/kirby-101/go-mono-libs/ansi-color"
 )
 
 // Level represents the severity of a log message.
@@ -19,13 +21,15 @@ const (
 	// LogInfo represents informational messages.
 	LogInfo
 
+	LogWarn
+
 	// LogError represents errors.
 	LogError
 
 	// LogFatal represents fatal errors.
 	LogFatal
 
-	unknownFuncName = "???"
+	unknownFuncName = "??"
 )
 
 var (
@@ -33,29 +37,40 @@ var (
 	logLevelDisplayNames = map[Level]string{
 		LogDebug: "debug",
 		LogInfo:  "info",
+		LogWarn:  "warn",
 		LogError: "error",
 		LogFatal: "fatal",
+	}
+
+	logLevelDisplayNamesColored = map[Level]string{
+		LogDebug: "debug",
+		LogInfo:  ansicolor.ColorizeBlueString("info"),
+		LogWarn:  ansicolor.ColorizeYellowString("warn"),
+		LogError: ansicolor.ColorizeRedString("error"),
+		LogFatal: ansicolor.ColorizeRedString("fatal"),
 	}
 )
 
 // Logger represents a thread-safe logger with level filtering and buffered output.
 type Logger struct {
-	sync.Mutex
-	File   *os.File
+	Config Config
 	Writer *bufio.Writer
-	Level  Level
+	sync.Mutex
 }
 
 // NewLogger creates a new Logger instance writing to the given file (or stdout if nil).
-func NewLogger(file *os.File) *Logger {
-	if file == nil {
-		file = os.Stdout
+func NewLogger(cfg Config) *Logger {
+	if cfg.File == nil {
+		cfg.File = os.Stdout
+	}
+
+	if cfg.Level == 0 {
+		cfg.Level = defaultLogLevel
 	}
 
 	return &Logger{
-		File:   file,
-		Level:  defaultLogLevel,
-		Writer: bufio.NewWriter(file),
+		Config: cfg,
+		Writer: bufio.NewWriter(cfg.File),
 	}
 }
 
@@ -65,7 +80,7 @@ func (logger *Logger) Close() error {
 		return &FlushError{Err: err}
 	}
 
-	if err := logger.File.Close(); err != nil {
+	if err := logger.Config.File.Close(); err != nil {
 		return &CloseError{Err: err}
 	}
 

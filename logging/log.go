@@ -11,16 +11,25 @@ import (
 // Log writes a message at the given log level with the given type and message parts.
 func (logger *Logger) Log(level Level, logType string, messageParts ...string) {
 	// check if we log on the right level
-	if level < logger.Level {
+	if level < logger.Config.Level {
 		return
 	}
 
-	var rawBuf bytes.Buffer
+	var (
+		logLevelStr string
+		rawBuf      bytes.Buffer
+	)
+
+	if logger.Config.Colorize {
+		logLevelStr = logLevelDisplayNamesColored[level]
+	} else {
+		logLevelStr = logLevelDisplayNames[level]
+	}
 
 	// assemble our log line
 	fmt.Fprintf(
 		&rawBuf,
-		"[%s]-[%s]-[%s] ", time.Now().Format("02.01.06_15:04:05"), logLevelDisplayNames[level], logType,
+		"[%s]-[%s]-[%s] ", time.Now().Format("02.01.06_15:04:05"), logLevelStr, logType,
 	)
 
 	for i, p := range messageParts {
@@ -68,6 +77,18 @@ func (logger *Logger) Info(messageParts ...string) {
 	}
 
 	logger.Log(LogInfo, funcname, messageParts...)
+}
+
+// Warn logs an warn-level message including the caller function name.
+func (logger *Logger) Warn(messageParts ...string) {
+	pc, _, _, ok := runtime.Caller(1)
+	funcname := runtime.FuncForPC(pc).Name()
+
+	if !ok {
+		funcname = unknownFuncName
+	}
+
+	logger.Log(LogWarn, funcname, messageParts...)
 }
 
 // Error logs an error-level message including the caller function name.
